@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Text Summarizer</title>
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 48px 16px;
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      background: #f6f7f9;
+      color: #1d2129;
+    }
+
+    main { max-width: 720px; margin: 0 auto; }
+
+    h1 { margin: 0 0 4px; font-size: 28px; }
+    .subtitle { margin: 0 0 24px; color: #6b7280; }
+
+    label { display: block; margin-bottom: 8px; font-weight: 600; }
+
+    textarea {
+      width: 100%;
+      min-height: 220px;
+      padding: 14px;
+      font: inherit;
+      line-height: 1.5;
+      border: 1px solid #d1d5db;
+      border-radius: 10px;
+      background: #fff;
+      resize: vertical;
+    }
+    textarea:focus { outline: 2px solid #2563eb; border-color: transparent; }
+
+    .actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin: 12px 0 28px;
+    }
+    .count { color: #6b7280; font-size: 14px; }
+
+    button {
+      padding: 12px 24px;
+      font: inherit;
+      font-weight: 600;
+      color: #fff;
+      background: #2563eb;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+    button:hover { background: #1d4ed8; }
+    button:disabled { background: #93a3c4; cursor: wait; }
+
+    .output {
+      min-height: 80px;
+      padding: 16px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      background: #fff;
+    }
+    .output.placeholder { color: #9ca3af; }
+    .output.error { color: #b91c1c; border-color: #fca5a5; background: #fef2f2; }
+
+    .stats {
+      display: flex;
+      gap: 20px;
+      margin-top: 10px;
+      font-size: 14px;
+      color: #6b7280;
+    }
+    .stats strong { color: #1d2129; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Text Summarizer</h1>
+    <p class="subtitle">Paste some text and get a short summary.</p>
+
+    <label for="input">Your text</label>
+    <textarea id="input" placeholder="Paste an article, email, or notes here..."></textarea>
+
+    <div class="actions">
+      <span class="count" id="count">0 characters</span>
+      <button id="summarize">Summarize</button>
+    </div>
+
+    <label>Summary</label>
+    <div class="output placeholder" id="output">Your summary will appear here.</div>
+
+    <!-- Filled in only when the backend sends usage data (Stage 2). -->
+    <div class="stats" id="stats" hidden></div>
+  </main>
+
+  <script>
+    const input = document.getElementById("input");
+    const button = document.getElementById("summarize");
+    const output = document.getElementById("output");
+    const stats = document.getElementById("stats");
+    const count = document.getElementById("count");
+
+    input.addEventListener("input", () => {
+      count.textContent = `${input.value.length} characters`;
+    });
+
+    button.addEventListener("click", summarize);
+
+    async function summarize() {
+      button.disabled = true;
+      button.textContent = "Summarizing...";
+      stats.hidden = true;
+      showOutput("Working on it...", "placeholder");
+
+      try {
+        // Send the text to OUR backend. The browser never talks to Gemini
+        // directly, so the API key never reaches this page.
+        const response = await fetch("/api/summarize", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: input.value }),
+        });
+        const data = await response.json();
+
+        if (!response.ok) {
+          showOutput(data.error || "Something went wrong.", "error");
+          return;
+        }
+
+        showOutput(data.summary);
+        showStats(data);
+      } catch {
+        showOutput("Could not reach the server. Is it running?", "error");
+      } finally {
+        button.disabled = false;
+        button.textContent = "Summarize";
+      }
+    }
+
+    function showOutput(message, style = "") {
+      output.textContent = message;
+      output.className = `output ${style}`;
+    }
+
+    // Stage 1 sends only { summary }, so nothing shows here yet.
+    // Stage 2 also sends token counts and latency, and they appear automatically.
+    function showStats(data) {
+      if (data.latencyMs === undefined) return;
+
+      stats.innerHTML = `
+        <span>Input tokens: <strong>${data.inputTokens}</strong></span>
+        <span>Output tokens: <strong>${data.outputTokens}</strong></span>
+        <span>Latency: <strong>${data.latencyMs} ms</strong></span>
+      `;
+      stats.hidden = false;
+    }
+  </script>
+</body>
+</html>

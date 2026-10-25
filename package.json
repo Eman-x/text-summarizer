@@ -1,0 +1,17 @@
+{
+  "name": "text-summarizer",
+  "version": "1.0.0",
+  "description": "Workshop demo: a plain web app that we turn into an AI app by adding one Gemini API call",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node --env-file-if-exists=.env server.js",
+    "dev": "node --watch --env-file-if-exists=.env server.js"
+  },
+  "dependencies": {
+    "express": "^5.1.0"
+  }
+}
